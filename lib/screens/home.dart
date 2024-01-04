@@ -3,40 +3,30 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:song_lyrics_final/constants/colors.dart';
 import 'package:song_lyrics_final/models/song.dart';
+import 'package:song_lyrics_final/screens/create.dart';
 import 'package:song_lyrics_final/screens/edit.dart';
 import 'package:http/http.dart' as http;
 import 'package:song_lyrics_final/constants/constants.dart';
 import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  Song? updatedSong;
+  HomeScreen({
+    super.key,
+    this.updatedSong,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<Song> filteredSongs = [];
   List<Song> songs = [];
-  bool sorted = false;
 
   @override
   void initState() {
     super.initState();
-    filteredSongs = songs;
     fetchSongsFromApi();
-  }
-
-  List<Song> sortSongsByModifiedTime(List<Song> song) {
-    if (sorted) {
-      song.sort((a, b) => a.title.compareTo(b.title));
-    } else {
-      song.sort((b, a) => a.title.compareTo(b.title));
-    }
-
-    sorted = !sorted;
-
-    return song;
   }
 
   getRandomColor() {
@@ -44,21 +34,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return backgroundColors[random.nextInt(backgroundColors.length)];
   }
 
-  void onSearchTextChanged(String searchText) {
-    setState(() {
-      filteredSongs = songs
-          .where((songSong) =>
-              songSong.content.toLowerCase().contains(searchText.toLowerCase()) ||
-              songSong.title.toLowerCase().contains(searchText.toLowerCase()))
-          .toList();
-    });
-  }
+  void _deleteSong(int index, int? id) async {
+    try {
+      final url = '${baseURL}songs/$id';
+      final uri = Uri.parse(url);
+      final response = await http.delete(uri);
 
-  void deleteSong(int index) {
+      if (response.statusCode == 204) {
+        print('Delete recipe success');
+      } else {
+        print('Failed to delete recipe');
+      }
+    } catch (e) {
+      print('Error deleting recipe');
+    }
     setState(() {
-      Song songSong = filteredSongs[index];
-      songs.remove(songSong);
-      filteredSongs.removeAt(index);
+      Song song = songs[index];
+      songs.remove(song);
     });
   }
 
@@ -70,58 +62,14 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.fromLTRB(16, 40, 16, 0),
         child: Column(
           children: [
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Lyrics Composition',
                   style: TextStyle(fontSize: 30, color: Colors.white),
                 ),
-                IconButton(
-                    onPressed: () {
-                      setState(() {
-                        filteredSongs = sortSongsByModifiedTime(filteredSongs);
-                      });
-                    },
-                    padding: const EdgeInsets.all(0),
-                    icon: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                          color: Colors.grey.shade800.withOpacity(.8),
-                          borderRadius: BorderRadius.circular(10)),
-                      child: const Icon(
-                        Icons.sort,
-                        color: Colors.white,
-                      ),
-                    ))
               ],
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-            TextField(
-              onChanged: onSearchTextChanged,
-              style: const TextStyle(fontSize: 16, color: Colors.white),
-              decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                hintText: "Search songs...",
-                hintStyle: const TextStyle(color: Colors.grey),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: Colors.grey,
-                ),
-                fillColor: Colors.grey.shade800,
-                filled: true,
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: const BorderSide(color: Colors.transparent),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: const BorderSide(color: Colors.transparent),
-                ),
-              ),
             ),
             const SizedBox(
               height: 20,
@@ -131,7 +79,13 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.only(top: 30),
               itemCount: songs.length,
               itemBuilder: (context, index) {
+                print(widget.updatedSong);
+                if (widget.updatedSong != null) {
+                  Song newUpdatedSong = widget.updatedSong!;
+                  songs.add(newUpdatedSong);
+                }
                 final song = songs[index];
+                final songId = song.id;
                 final title = song.title;
                 final content = song.content;
                 return Card(
@@ -151,24 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 EditScreen(song: songs[index]),
                           ),
                         );
-                        if (result != null) {
-                          setState(() {
-                            int originalIndex =
-                                songs.indexOf(filteredSongs[index]);
-
-                            songs[originalIndex] = Song(
-                                id: songs[originalIndex].id,
-                                title: result[0],
-                                content: result[1],
-                               );
-
-                            filteredSongs[index] = Song(
-                                id: filteredSongs[index].id,
-                                title: result[0],
-                                content: result[1],
-                               );
-                          });
-                        }
                       },
                       title: RichText(
                         maxLines: 3,
@@ -195,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: () async {
                           final result = await confirmDialog(context);
                           if (result != null && result) {
-                            deleteSong(index);
+                            _deleteSong(index, songId);
                           }
                         },
                         icon: const Icon(
@@ -215,19 +151,17 @@ class _HomeScreenState extends State<HomeScreen> {
           final result = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (BuildContext context) => const EditScreen(),
+              builder: (BuildContext context) => const CreateScreen(),
             ),
           );
 
-          if (result != null) {
-            setState(() {
-              songs.add(Song(
-                  id: songs.length,
-                  title: result[0],
-                  content: result[1]));
-              filteredSongs = songs;
-            });
-          }
+          // if (result != null) {
+          //   setState(() {
+          //     songs.add(
+          //         Song(id: songs.length, title: result[0], content: result[1]));
+          //     filteredSongs = songs;
+          //   });
+          // }
         },
         elevation: 10,
         backgroundColor: Colors.grey.shade800,
@@ -288,7 +222,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         });
   }
-
 
   void fetchSongsFromApi() async {
     try {

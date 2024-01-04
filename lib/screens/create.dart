@@ -3,30 +3,17 @@ import 'package:song_lyrics_final/constants/constants.dart';
 import 'package:song_lyrics_final/models/song.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:song_lyrics_final/screens/home.dart';
 
-class EditScreen extends StatefulWidget {
-  final Song? song;
-  const EditScreen({super.key, this.song});
+class CreateScreen extends StatefulWidget {
+  const CreateScreen({super.key});
 
   @override
-  State<EditScreen> createState() => _EditScreenState();
+  State<CreateScreen> createState() => _CreateScreenState();
 }
 
-class _EditScreenState extends State<EditScreen> {
-  TextEditingController _titleController = TextEditingController();
-  TextEditingController _contentController = TextEditingController();
-
-  @override
-  void initState() {
-    // TODO: implement initState
-    if (widget.song != null) {
-      _titleController = TextEditingController(text: widget.song!.title);
-      _contentController = TextEditingController(text: widget.song!.content);
-    }
-
-    super.initState();
-  }
+class _CreateScreenState extends State<CreateScreen> {
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _contentController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -86,20 +73,8 @@ class _EditScreenState extends State<EditScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Song updatedSong = Song(
-            id: widget.song!.id,
-            title: _titleController.text,
-            content: _contentController.text,
-          );
-          _editSongs(updatedSong);
+          _createSongs();
           Navigator.of(context).pop();
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-                builder: (context) => HomeScreen(
-                      updatedSong: updatedSong,
-                    )),
-          );
         },
         elevation: 10,
         backgroundColor: Colors.grey.shade800,
@@ -108,12 +83,20 @@ class _EditScreenState extends State<EditScreen> {
     );
   }
 
-  void _editSongs(Song song) async {
-    print(song.id);
+  void _createSongs() async {
+    final title = _titleController.text;
+    final content = _contentController.text;
+    final song = Song(
+      title: title,
+      content: content,
+    );
+
+    const url = '${baseURL}songs';
+
     try {
-      final url = '${baseURL}songs/${song.id}';
+      const url = '${baseURL}songs';
       final uri = Uri.parse(url);
-      final response = await http.put(
+      final response = await http.post(
         uri,
         headers: {
           'Content-Type': 'application/json',
@@ -125,12 +108,22 @@ class _EditScreenState extends State<EditScreen> {
         final body = response.body;
         final json = jsonDecode(body);
 
-        print('Success recipe updated');
+        // final newRecipe = Song(
+        //   id: json['id'],
+        //   title: json['title'],
+        //   content: json['content'],
+        // );
+
+        // setState(() {
+        //   songs.add(newRecipe);
+        // });
+
+        print('Success recipe saved');
       } else {
-        print('Failed to update recipe');
+        print('Failed to save recipe');
       }
     } catch (error) {
-      print('Error updating recipe');
+      print('Error saving recipe');
     }
   }
 }
